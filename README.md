@@ -9,6 +9,7 @@
 - Quản lý khách hàng
 - Quản lý nhập hàng
 - Thống kê doanh thu
+- Hiển thị bill
 
 ## Công nghệ
 
