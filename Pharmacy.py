@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import matplotlib
 import matplotlib.pyplot as plt
 
-#Matplotlib
 matplotlib.use('TkAgg')
 
 def format_vnd(amount):
@@ -220,7 +219,7 @@ class AdvancedPharmacySystem:
         right_frame = tk.Frame(main_frame)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=1, padx=5)
 
-        #Quỹ và Bill
+        #Quỹ + Bill
         fund_bar = tk.Frame(right_frame, bg="#27ae60")
         fund_bar.pack(fill=tk.X, pady=(0, 6))
 
@@ -254,7 +253,7 @@ class AdvancedPharmacySystem:
 
         note_frame = tk.Frame(right_frame)
         note_frame.pack(fill=tk.X)
-        tk.Label(note_frame, text="⚠️ Trạng thái: ", font=("Arial", 9, "bold")).pack(side=tk.LEFT)
+        tk.Label(note_frame, text="⚠️ Chú thích trạng thái: ", font=("Arial", 9, "bold")).pack(side=tk.LEFT)
         tk.Label(note_frame, text=" Hết hạn / Hết hàng ", bg="#ffcccc", fg="red", font=("Arial", 9, "bold")).pack(side=tk.LEFT, padx=5)
         tk.Label(note_frame, text=" Cận hạn (< 3 tháng) / Sắp hết hàng (<10) ", bg="#ffe6cc", fg="#d35400", font=("Arial", 9, "bold")).pack(side=tk.LEFT, padx=5)
 
@@ -291,7 +290,7 @@ class AdvancedPharmacySystem:
         win = tk.Toplevel(self.root)
         win.title("📋 Danh Sách Hóa Đơn")
         win.geometry("900x580")
-        win.grab_set()
+        win.grab_set()  # Khóa focus vào cửa sổ này
 
         tk.Label(win, text="DANH SÁCH HÓA ĐƠN", font=("Arial", 15, "bold"),
                  bg="#2c3e50", fg="white", pady=10).pack(fill=tk.X)
@@ -309,7 +308,7 @@ class AdvancedPharmacySystem:
                            command=lambda: self._load_bills(bill_tree, detail_tree, lbl_bill_total),
                            font=("Arial", 10)).pack(side=tk.LEFT, padx=8)
 
-        #Ds bill
+        #Ds Bill
         top_frame = tk.Frame(win)
         top_frame.pack(fill=tk.BOTH, expand=1, padx=10, pady=5)
 
@@ -334,6 +333,7 @@ class AdvancedPharmacySystem:
         tk.Label(win, text="CHI TIẾT HÓA ĐƠN", font=("Arial", 10, "bold"),
                  bg="#34495e", fg="white", pady=4).pack(fill=tk.X, padx=0)
 
+        #Chi tiết Bill
         bot_frame = tk.Frame(win)
         bot_frame.pack(fill=tk.BOTH, expand=1, padx=10, pady=5)
 
@@ -365,6 +365,7 @@ class AdvancedPharmacySystem:
         self._load_bills(bill_tree, detail_tree, lbl_bill_total)
 
     def _load_bills(self, bill_tree, detail_tree, lbl_total):
+        """Tải danh sách hóa đơn theo bộ lọc"""
         bill_tree.delete(*bill_tree.get_children())
         detail_tree.delete(*detail_tree.get_children())
 
@@ -393,6 +394,7 @@ class AdvancedPharmacySystem:
         lbl_total.config(text=f"Tổng cộng: {format_vnd(total)}  |  {len(rows)} hóa đơn")
 
     def _load_bill_details(self, detail_tree, bill_id):
+        """Tải chi tiết các mặt hàng trong 1 hóa đơn"""
         detail_tree.delete(*detail_tree.get_children())
         self.cursor.execute("""
             SELECT P.DrugName, BD.Quantity, BD.Price, BD.Quantity * BD.Price
@@ -515,6 +517,8 @@ class AdvancedPharmacySystem:
             self.crud_btn_frame.config(text="Thao tác dữ liệu (Bị khóa)")
             self.import_frame.config(text="NHẬP HÀNG THÊM (Bị khóa)")
             self.stat_frame.config(text="BÁO CÁO THỐNG KÊ (Bị khóa)")
+
+    #Data
 
     def update_total_fund(self):
         try:
