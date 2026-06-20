@@ -5,17 +5,14 @@ from datetime import datetime, timedelta
 import matplotlib
 import matplotlib.pyplot as plt
 
-# Cấu hình matplotlib hoạt động ổn định với giao diện Tkinter
+#Matplotlib
 matplotlib.use('TkAgg')
 
-
 def format_vnd(amount):
-    """Định dạng số tiền sang VNĐ với dấu phân cách hàng nghìn"""
     try:
         return f"{float(amount):,.0f} ₫"
     except (ValueError, TypeError):
         return amount
-
 
 class LoginWindow:
     def __init__(self, root):
@@ -24,7 +21,6 @@ class LoginWindow:
         self.root.geometry("400x300")
         self.root.resizable(False, False)
 
-        # Kết nối Database phục vụ xác thực
         self.conn = pyodbc.connect(
             "Driver={SQL Server};"
             "Server=localhost;"
@@ -33,35 +29,25 @@ class LoginWindow:
         )
         self.cursor = self.conn.cursor()
 
-        # Biến lưu thông tin nhập
         self.var_username = tk.StringVar()
         self.var_password = tk.StringVar()
 
         self.setup_ui()
 
     def setup_ui(self):
-        # Header
-        lbl_title = tk.Label(self.root, text="HỆ THỐNG ĐĂNG NHẬP", font=("Arial", 16, "bold"), bg="#2c3e50", fg="white",
-                             pady=10)
+        lbl_title = tk.Label(self.root, text="HỆ THỐNG ĐĂNG NHẬP", font=("Arial", 16, "bold"), bg="#2c3e50", fg="white", pady=10)
         lbl_title.pack(fill=tk.X)
 
-        # Form điền thông tin
         form_frame = tk.Frame(self.root, pady=20)
         form_frame.pack()
 
         tk.Label(form_frame, text="Tài khoản:", font=("Arial", 11)).grid(row=0, column=0, padx=10, pady=10, sticky="w")
-        tk.Entry(form_frame, textvariable=self.var_username, font=("Arial", 11), width=20).grid(row=0, column=1,
-                                                                                                padx=10, pady=10)
+        tk.Entry(form_frame, textvariable=self.var_username, font=("Arial", 11), width=20).grid(row=0, column=1, padx=10, pady=10)
 
         tk.Label(form_frame, text="Mật khẩu:", font=("Arial", 11)).grid(row=1, column=0, padx=10, pady=10, sticky="w")
-        tk.Entry(form_frame, textvariable=self.var_password, show="*", font=("Arial", 11), width=20).grid(row=1,
-                                                                                                          column=1,
-                                                                                                          padx=10,
-                                                                                                          pady=10)
+        tk.Entry(form_frame, textvariable=self.var_password, show="*", font=("Arial", 11), width=20).grid(row=1, column=1, padx=10, pady=10)
 
-        # Nút hành động
-        btn_login = tk.Button(self.root, text="Đăng Nhập", command=self.login, bg="#16a085", fg="white",
-                              font=("Arial", 11, "bold"), width=15, pady=5)
+        btn_login = tk.Button(self.root, text="Đăng Nhập", command=self.login, bg="#16a085", fg="white", font=("Arial", 11, "bold"), width=15, pady=5)
         btn_login.pack(pady=10)
 
     def login(self):
@@ -72,15 +58,12 @@ class LoginWindow:
             messagebox.showwarning("Cảnh báo", "Vui lòng nhập đầy đủ tài khoản và mật khẩu!")
             return
 
-        # Truy vấn kiểm tra tài khoản
         self.cursor.execute("SELECT Role FROM Users WHERE Username = ? AND Password = ?", (u, p))
         row = self.cursor.fetchone()
 
         if row:
             role = row[0]
             messagebox.showinfo("Thành công", f"Đăng nhập thành công với quyền: {role}")
-
-            # Đóng màn hình đăng nhập và khởi chạy màn hình chính tương ứng với quyền hạn
             self.root.destroy()
             main_root = tk.Tk()
             app = AdvancedPharmacySystem(main_root, role, u)
@@ -92,14 +75,13 @@ class LoginWindow:
 class AdvancedPharmacySystem:
     def __init__(self, root, role, current_user):
         self.root = root
-        self.role = role  # 'Admin' hoặc 'Staff'
+        self.role = role
         self.current_user = current_user
 
         self.root.title(f"Hệ Thống Quản Lý Nhà Thuốc - [{self.role} Mode]")
         self.root.geometry("1280x750")
         self.root.state('zoomed')
 
-        # Kết nối Database
         self.conn = pyodbc.connect(
             "Driver={SQL Server};"
             "Server=localhost;"
@@ -108,7 +90,6 @@ class AdvancedPharmacySystem:
         )
         self.cursor = self.conn.cursor()
 
-        # Tạo bảng ImportHistory nếu chưa tồn tại để lưu chi phí nhập hàng
         self.cursor.execute("""
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ImportHistory' AND xtype='U')
             CREATE TABLE ImportHistory (
@@ -122,7 +103,6 @@ class AdvancedPharmacySystem:
         """)
         self.conn.commit()
 
-        # Biến quản lý form Thuốc
         self.var_id = tk.StringVar()
         self.var_name = tk.StringVar()
         self.var_cat = tk.StringVar()
@@ -133,19 +113,16 @@ class AdvancedPharmacySystem:
         self.var_expiry = tk.StringVar()
         self.var_search = tk.StringVar()
 
-        # Biến nghiệp vụ
         self.var_sell_qty = tk.IntVar(value=1)
         self.var_import_qty = tk.IntVar(value=10)
 
-        # Giỏ hàng: list of dict {id, name, qty, price}
         self.cart_items = []
 
         self.setup_ui()
         self.fetch_data()
-        self.apply_permissions()  # Áp dụng giới hạn quyền ngay sau khi load UI
+        self.apply_permissions()
 
     def setup_ui(self):
-        # Header toàn ứng dụng hiển thị thêm Tên tài khoản & Chức vụ
         lbl_title = tk.Label(self.root, text=f"💊 PHARMACY ECOSYSTEM | Tài khoản: {self.current_user} ({self.role})",
                              font=("Arial", 20, "bold"), bg="#2c3e50" if self.role == "Admin" else "#2980b9",
                              fg="white", pady=12)
@@ -154,15 +131,11 @@ class AdvancedPharmacySystem:
         main_frame = tk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=1, padx=10, pady=10)
 
-        # =========================================================================
-        # KHU VỰC TRÁI: BẢNG ĐIỀU KHIỂN
-        # =========================================================================
         self.left_frame = tk.LabelFrame(main_frame, text=" BẢNG ĐIỀU KHIỂN CHI TIẾT ", font=("Arial", 11, "bold"),
                                         fg="#2c3e50", bd=3, relief=tk.RIDGE, width=420)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5)
-        self.left_frame.pack_propagate(False)  # Giữ cố định kích thước khung trái
+        self.left_frame.pack_propagate(False)
 
-        # Form fields bên trong khung trái
         fields = [
             ("Tên thuốc:", self.var_name),
             ("Danh mục:", self.var_cat),
@@ -175,49 +148,35 @@ class AdvancedPharmacySystem:
 
         for i, (label, var) in enumerate(fields):
             tk.Label(self.left_frame, text=label, font=("Arial", 10)).grid(row=i, column=0, padx=10, pady=6, sticky="w")
-            tk.Entry(self.left_frame, textvariable=var, font=("Arial", 10), bd=2, width=24).grid(row=i, column=1,
-                                                                                                 padx=10, pady=6)
+            tk.Entry(self.left_frame, textvariable=var, font=("Arial", 10), bd=2, width=24).grid(row=i, column=1, padx=10, pady=6)
 
-        # Nhãn hiển thị giá bán & giá nhập được định dạng (chỉ đọc, cạnh ô nhập)
         self.lbl_price_display = tk.Label(self.left_frame, text="", font=("Arial", 9, "italic"), fg="#16a085")
         self.lbl_price_display.grid(row=3, column=2, padx=4, sticky="w")
 
         self.lbl_import_display = tk.Label(self.left_frame, text="", font=("Arial", 9, "italic"), fg="#8e44ad")
         self.lbl_import_display.grid(row=4, column=2, padx=4, sticky="w")
 
-        # Cập nhật nhãn định dạng mỗi khi giá thay đổi
-        self.var_price.trace_add("write", lambda *_: self.lbl_price_display.config(
-            text=format_vnd(self._safe_get(self.var_price))))
-        self.var_import_price.trace_add("write", lambda *_: self.lbl_import_display.config(
-            text=format_vnd(self._safe_get(self.var_import_price))))
+        self.var_price.trace_add("write", lambda *_: self.lbl_price_display.config(text=format_vnd(self._safe_get(self.var_price))))
+        self.var_import_price.trace_add("write", lambda *_: self.lbl_import_display.config(text=format_vnd(self._safe_get(self.var_import_price))))
 
-        # Khung hành động nghiệp vụ CRUD cơ bản
-        self.crud_btn_frame = tk.LabelFrame(self.left_frame, text="Thao tác dữ liệu",
-                                            font=("Arial", 9, "italic"), fg="red")
+        self.crud_btn_frame = tk.LabelFrame(self.left_frame, text="Thao tác dữ liệu", font=("Arial", 9, "italic"), fg="red")
         self.crud_btn_frame.grid(row=7, column=0, columnspan=2, pady=10, padx=10, sticky="we")
 
-        self.btn_add = tk.Button(self.crud_btn_frame, text="Thêm Mới", command=self.add_item, bg="#2ecc71", fg="white",
-                                 width=9)
+        self.btn_add = tk.Button(self.crud_btn_frame, text="Thêm Mới", command=self.add_item, bg="#2ecc71", fg="white", width=9)
         self.btn_add.grid(row=0, column=0, padx=4, pady=5)
-        self.btn_update = tk.Button(self.crud_btn_frame, text="Cập Nhật", command=self.update_item, bg="#3498db",
-                                    fg="white", width=9)
+        self.btn_update = tk.Button(self.crud_btn_frame, text="Cập Nhật", command=self.update_item, bg="#3498db", fg="white", width=9)
         self.btn_update.grid(row=0, column=1, padx=4, pady=5)
-        self.btn_delete = tk.Button(self.crud_btn_frame, text="Xóa Thuốc", command=self.delete_item, bg="#e74c3c",
-                                    fg="white", width=9)
+        self.btn_delete = tk.Button(self.crud_btn_frame, text="Xóa Thuốc", command=self.delete_item, bg="#e74c3c", fg="white", width=9)
         self.btn_delete.grid(row=0, column=2, padx=4, pady=5)
+        tk.Button(self.crud_btn_frame, text="Xóa Trắng", command=self.clear_fields, bg="#95a5a6", fg="white", width=9).grid(row=0, column=3, padx=4, pady=5)
 
-        tk.Button(self.crud_btn_frame, text="Xóa Trắng", command=self.clear_fields, bg="#95a5a6", fg="white",
-                  width=9).grid(row=0, column=3, padx=4, pady=5)
-
-        # CHỨC NĂNG BÁN HÀNG (GIỎ HÀNG)
-        self.sell_frame = tk.LabelFrame(self.left_frame, text=" GIỎ HÀNG - BÁN NHIỀU LOẠI ",
-                                        font=("Arial", 10, "bold"), fg="#d35400", bd=2)
+        #Giỏ hàng
+        self.sell_frame = tk.LabelFrame(self.left_frame, text=" GIỎ HÀNG - BÁN NHIỀU LOẠI ", font=("Arial", 10, "bold"), fg="#d35400", bd=2)
         self.sell_frame.grid(row=8, column=0, columnspan=2, pady=10, padx=10, sticky="we")
 
         tk.Label(self.sell_frame, text="Số lượng:").grid(row=0, column=0, padx=6, pady=4)
         tk.Entry(self.sell_frame, textvariable=self.var_sell_qty, width=7, font=("Arial", 10)).grid(row=0, column=1, padx=4)
-        tk.Button(self.sell_frame, text="➕ Thêm vào giỏ", command=self.add_to_cart,
-                  bg="#e67e22", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=2, padx=6, pady=4)
+        tk.Button(self.sell_frame, text="➕ Thêm vào giỏ", command=self.add_to_cart, bg="#e67e22", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=2, padx=6, pady=4)
 
         cart_cols = ("Tên thuốc", "SL", "Đơn giá", "Thành tiền")
         self.cart_table = ttk.Treeview(self.sell_frame, columns=cart_cols, show="headings", height=4)
@@ -231,82 +190,75 @@ class AdvancedPharmacySystem:
         self.cart_table.column("Thành tiền", width=90, anchor="e")
         self.cart_table.grid(row=1, column=0, columnspan=3, padx=6, pady=4, sticky="we")
 
-        self.lbl_sell_total = tk.Label(self.sell_frame, text="Tổng giỏ hàng: 0 ₫",
-                                       font=("Arial", 10, "bold"), fg="#d35400")
+        self.lbl_sell_total = tk.Label(self.sell_frame, text="Tổng giỏ hàng: 0 ₫", font=("Arial", 10, "bold"), fg="#d35400")
         self.lbl_sell_total.grid(row=2, column=0, columnspan=2, padx=6, pady=2, sticky="w")
 
-        tk.Button(self.sell_frame, text="🗑 Xóa dòng", command=self.remove_cart_item,
-                  bg="#95a5a6", fg="white", font=("Arial", 9)).grid(row=2, column=2, padx=6, pady=2)
-        tk.Button(self.sell_frame, text="💰 THANH TOÁN", command=self.checkout_cart,
-                  bg="#c0392b", fg="white", font=("Arial", 10, "bold")).grid(
-                  row=3, column=0, columnspan=3, padx=6, pady=6, sticky="we")
+        tk.Button(self.sell_frame, text="🗑 Xóa dòng", command=self.remove_cart_item, bg="#95a5a6", fg="white", font=("Arial", 9)).grid(row=2, column=2, padx=6, pady=2)
+        tk.Button(self.sell_frame, text="💰 THANH TOÁN", command=self.checkout_cart, bg="#c0392b", fg="white", font=("Arial", 10, "bold")).grid(row=3, column=0, columnspan=3, padx=6, pady=6, sticky="we")
 
         self.var_sell_qty.trace_add("write", lambda *_: self._update_sell_total())
         self.var_price.trace_add("write", lambda *_: self._update_sell_total())
 
-        # CHỨC NĂNG NHẬP HÀNG
-        self.import_frame = tk.LabelFrame(self.left_frame, text=" NHẬP HÀNG THÊM ",
-                                          font=("Arial", 10, "bold"), fg="#27ae60", bd=2)
+        #Nhập hàng
+        self.import_frame = tk.LabelFrame(self.left_frame, text=" NHẬP HÀNG THÊM ", font=("Arial", 10, "bold"), fg="#27ae60", bd=2)
         self.import_frame.grid(row=9, column=0, columnspan=2, pady=5, padx=10, sticky="we")
 
         tk.Label(self.import_frame, text="Số lượng nhập:").grid(row=0, column=0, padx=10, pady=5)
-        tk.Entry(self.import_frame, textvariable=self.var_import_qty, width=8, font=("Arial", 10)).grid(row=0, column=1,
-                                                                                                        padx=5)
-        self.btn_import = tk.Button(self.import_frame, text="➕ NHẬP KHO", command=self.import_stock, bg="#27ae60",
-                                    fg="white", font=("Arial", 10, "bold"))
+        tk.Entry(self.import_frame, textvariable=self.var_import_qty, width=8, font=("Arial", 10)).grid(row=0, column=1, padx=5)
+        self.btn_import = tk.Button(self.import_frame, text="➕ NHẬP KHO", command=self.import_stock, bg="#27ae60", fg="white", font=("Arial", 10, "bold"))
         self.btn_import.grid(row=0, column=2, padx=10, pady=5)
 
-        # THỐNG KÊ BIỂU ĐỒ
-        self.stat_frame = tk.LabelFrame(self.left_frame, text=" BÁO CÁO THỐNG KÊ ",
-                                        font=("Arial", 10, "bold"), fg="#8e44ad", bd=2)
+        #Thống kê
+        self.stat_frame = tk.LabelFrame(self.left_frame, text=" BÁO CÁO THỐNG KÊ ", font=("Arial", 10, "bold"), fg="#8e44ad", bd=2)
         self.stat_frame.grid(row=10, column=0, columnspan=2, pady=10, padx=10, sticky="we")
 
-        self.btn_chart1 = tk.Button(self.stat_frame, text="Doanh Thu Tuần/Tháng", command=self.report_revenue,
-                                    bg="#8e44ad", fg="white", width=18)
+        self.btn_chart1 = tk.Button(self.stat_frame, text="Doanh Thu Tuần/Tháng", command=self.report_revenue, bg="#8e44ad", fg="white", width=18)
         self.btn_chart1.grid(row=0, column=0, padx=5, pady=5)
-        self.btn_chart2 = tk.Button(self.stat_frame, text="Thuốc Bán Chạy Nhất", command=self.report_best_sellers,
-                                    bg="#9b59b6", fg="white", width=18)
+        self.btn_chart2 = tk.Button(self.stat_frame, text="Thuốc Bán Chạy Nhất", command=self.report_best_sellers, bg="#9b59b6", fg="white", width=18)
         self.btn_chart2.grid(row=0, column=1, padx=5, pady=5)
 
-        # ==========================================
-        # KHU VỰC PHẢI: HIỂN THỊ DANH SÁCH THUỐC
-        # ==========================================
         right_frame = tk.Frame(main_frame)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=1, padx=5)
 
-        # Thanh tổng quỹ cửa hàng
+        #Quỹ và Bill
+        fund_bar = tk.Frame(right_frame, bg="#27ae60")
+        fund_bar.pack(fill=tk.X, pady=(0, 6))
+
         self.lbl_total_fund = tk.Label(
-            right_frame,
+            fund_bar,
             text="🏦  TỔNG QUỸ CỬA HÀNG: đang tải...",
             font=("Arial", 16, "bold"),
-            bg="#e67e22", fg="white",
-            pady=10, padx=20, anchor="center"
+            bg="#27ae60", fg="white",
+            pady=10, padx=20, anchor="w"
         )
-        self.lbl_total_fund.pack(fill=tk.X, pady=(0, 6))
+        self.lbl_total_fund.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
-        # Thanh tìm kiếm thông minh
+        self.btn_view_bills = tk.Button(
+            fund_bar,
+            text="📋 XEM HÓA ĐƠN",
+            command=self.show_bills_window,
+            bg="#2c3e50", fg="white",
+            font=("Arial", 11, "bold"),
+            padx=14, pady=8, cursor="hand2"
+        )
+        self.btn_view_bills.pack(side=tk.RIGHT, padx=10, pady=6)
+
+        #Tìm kiếm
         search_bar = tk.Frame(right_frame)
         search_bar.pack(fill=tk.X, pady=5)
 
         tk.Label(search_bar, text="Tìm kiếm (Tên/Công dụng):", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
         tk.Entry(search_bar, textvariable=self.var_search, font=("Arial", 10), width=35).pack(side=tk.LEFT, padx=5)
-        tk.Button(search_bar, text="Tìm kiếm", command=self.search_data, bg="#34495e", fg="white", width=10).pack(
-            side=tk.LEFT, padx=5)
-        tk.Button(search_bar, text="Hiển thị tất cả", command=self.fetch_data, bg="#7f8c8d", fg="white").pack(
-            side=tk.LEFT, padx=5)
+        tk.Button(search_bar, text="Tìm kiếm", command=self.search_data, bg="#34495e", fg="white", width=10).pack(side=tk.LEFT, padx=5)
+        tk.Button(search_bar, text="Hiển thị tất cả", command=self.fetch_data, bg="#7f8c8d", fg="white").pack(side=tk.LEFT, padx=5)
 
-        # Chỉ dẫn cảnh báo màu sắc
         note_frame = tk.Frame(right_frame)
         note_frame.pack(fill=tk.X)
-        tk.Label(note_frame, text="⚠️ Chú thích trạng thái: ", font=("Arial", 9, "bold")).pack(side=tk.LEFT)
-        tk.Label(note_frame, text=" Hết hạn / Hết hàng ", bg="#ffcccc", fg="red", font=("Arial", 9, "bold")).pack(
-            side=tk.LEFT, padx=5)
-        tk.Label(note_frame, text=" Cận hạn (< 3 tháng) / Sắp hết hàng (<10) ", bg="#ffe6cc", fg="#d35400",
-                 font=("Arial", 9, "bold")).pack(side=tk.LEFT, padx=5)
+        tk.Label(note_frame, text="⚠️ Trạng thái: ", font=("Arial", 9, "bold")).pack(side=tk.LEFT)
+        tk.Label(note_frame, text=" Hết hạn / Hết hàng ", bg="#ffcccc", fg="red", font=("Arial", 9, "bold")).pack(side=tk.LEFT, padx=5)
+        tk.Label(note_frame, text=" Cận hạn (< 3 tháng) / Sắp hết hàng (<10) ", bg="#ffe6cc", fg="#d35400", font=("Arial", 9, "bold")).pack(side=tk.LEFT, padx=5)
 
-        # Cấu trúc bảng hiển thị thông tin thuốc
-        self.table = ttk.Treeview(right_frame,
-                                  columns=("ID", "Name", "Cat", "Uses", "Price", "ImportPrice", "Stock", "Expiry"))
+        self.table = ttk.Treeview(right_frame, columns=("ID", "Name", "Cat", "Uses", "Price", "ImportPrice", "Stock", "Expiry"))
         self.table.pack(fill=tk.BOTH, expand=1, pady=5)
 
         self.table.heading("ID", text="Mã")
@@ -328,10 +280,134 @@ class AdvancedPharmacySystem:
         self.table.column("Expiry", width=90, anchor="center")
 
         self.table.bind("<ButtonRelease-1>", self.get_cursor)
-
         self.table.tag_configure("CRITICAL", background="#ffcccc", foreground="#c0392b")
         self.table.tag_configure("WARNING", background="#ffe6cc", foreground="#d35400")
         self.table.tag_configure("NORMAL", background="white", foreground="black")
+
+    #Bill
+
+    def show_bills_window(self):
+        """Mở cửa sổ xem danh sách hóa đơn"""
+        win = tk.Toplevel(self.root)
+        win.title("📋 Danh Sách Hóa Đơn")
+        win.geometry("900x580")
+        win.grab_set()
+
+        tk.Label(win, text="DANH SÁCH HÓA ĐƠN", font=("Arial", 15, "bold"),
+                 bg="#2c3e50", fg="white", pady=10).pack(fill=tk.X)
+
+        #Lọc
+        filter_frame = tk.Frame(win, pady=6)
+        filter_frame.pack(fill=tk.X, padx=10)
+
+        tk.Label(filter_frame, text="Lọc theo ngày:", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
+
+        self.var_bill_filter = tk.StringVar(value="all")
+        filters = [("Tất cả", "all"), ("Hôm nay", "today"), ("7 ngày", "7days"), ("30 ngày", "30days")]
+        for text, val in filters:
+            tk.Radiobutton(filter_frame, text=text, variable=self.var_bill_filter, value=val,
+                           command=lambda: self._load_bills(bill_tree, detail_tree, lbl_bill_total),
+                           font=("Arial", 10)).pack(side=tk.LEFT, padx=8)
+
+        #Ds bill
+        top_frame = tk.Frame(win)
+        top_frame.pack(fill=tk.BOTH, expand=1, padx=10, pady=5)
+
+        bill_cols = ("BillID", "Ngày giờ", "Tổng tiền")
+        bill_tree = ttk.Treeview(top_frame, columns=bill_cols, show="headings", height=8)
+        bill_tree.heading("BillID", text="Mã HĐ")
+        bill_tree.heading("Ngày giờ", text="Ngày giờ xuất")
+        bill_tree.heading("Tổng tiền", text="Tổng tiền")
+        bill_tree.column("BillID", width=70, anchor="center")
+        bill_tree.column("Ngày giờ", width=180, anchor="center")
+        bill_tree.column("Tổng tiền", width=150, anchor="e")
+
+        sb_bill = ttk.Scrollbar(top_frame, orient=tk.VERTICAL, command=bill_tree.yview)
+        bill_tree.configure(yscrollcommand=sb_bill.set)
+        bill_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        sb_bill.pack(side=tk.LEFT, fill=tk.Y)
+
+        lbl_bill_total = tk.Label(win, text="Tổng cộng: 0 ₫  |  0 hóa đơn",
+                                  font=("Arial", 11, "bold"), fg="#2c3e50", anchor="e")
+        lbl_bill_total.pack(fill=tk.X, padx=15, pady=2)
+
+        tk.Label(win, text="CHI TIẾT HÓA ĐƠN", font=("Arial", 10, "bold"),
+                 bg="#34495e", fg="white", pady=4).pack(fill=tk.X, padx=0)
+
+        bot_frame = tk.Frame(win)
+        bot_frame.pack(fill=tk.BOTH, expand=1, padx=10, pady=5)
+
+        detail_cols = ("Tên thuốc", "Số lượng", "Đơn giá", "Thành tiền")
+        detail_tree = ttk.Treeview(bot_frame, columns=detail_cols, show="headings", height=6)
+        detail_tree.heading("Tên thuốc", text="Tên thuốc")
+        detail_tree.heading("Số lượng", text="Số lượng")
+        detail_tree.heading("Đơn giá", text="Đơn giá")
+        detail_tree.heading("Thành tiền", text="Thành tiền")
+        detail_tree.column("Tên thuốc", width=250)
+        detail_tree.column("Số lượng", width=80, anchor="center")
+        detail_tree.column("Đơn giá", width=130, anchor="e")
+        detail_tree.column("Thành tiền", width=150, anchor="e")
+
+        sb_detail = ttk.Scrollbar(bot_frame, orient=tk.VERTICAL, command=detail_tree.yview)
+        detail_tree.configure(yscrollcommand=sb_detail.set)
+        detail_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        sb_detail.pack(side=tk.LEFT, fill=tk.Y)
+
+        def on_bill_select(event):
+            sel = bill_tree.focus()
+            if not sel:
+                return
+            bill_id = bill_tree.item(sel)['values'][0]
+            self._load_bill_details(detail_tree, bill_id)
+
+        bill_tree.bind("<ButtonRelease-1>", on_bill_select)
+
+        self._load_bills(bill_tree, detail_tree, lbl_bill_total)
+
+    def _load_bills(self, bill_tree, detail_tree, lbl_total):
+        bill_tree.delete(*bill_tree.get_children())
+        detail_tree.delete(*detail_tree.get_children())
+
+        f = self.var_bill_filter.get()
+        if f == "today":
+            where = "WHERE CAST(BillDate AS DATE) = CAST(GETDATE() AS DATE)"
+        elif f == "7days":
+            where = "WHERE BillDate >= DATEADD(day, -7, GETDATE())"
+        elif f == "30days":
+            where = "WHERE BillDate >= DATEADD(day, -30, GETDATE())"
+        else:
+            where = ""
+
+        self.cursor.execute(f"SELECT BillID, BillDate, TotalAmount FROM Bills {where} ORDER BY BillDate DESC")
+        rows = self.cursor.fetchall()
+
+        total = 0
+        for row in rows:
+            bill_tree.insert('', tk.END, values=(
+                row[0],
+                str(row[1])[:19],
+                format_vnd(row[2])
+            ))
+            total += row[2]
+
+        lbl_total.config(text=f"Tổng cộng: {format_vnd(total)}  |  {len(rows)} hóa đơn")
+
+    def _load_bill_details(self, detail_tree, bill_id):
+        detail_tree.delete(*detail_tree.get_children())
+        self.cursor.execute("""
+            SELECT P.DrugName, BD.Quantity, BD.Price, BD.Quantity * BD.Price
+            FROM BillDetails BD
+            JOIN Products P ON BD.ProductID = P.ID
+            WHERE BD.BillID = ?
+        """, (bill_id,))
+        rows = self.cursor.fetchall()
+        for row in rows:
+            detail_tree.insert('', tk.END, values=(
+                row[0],
+                row[1],
+                format_vnd(row[2]),
+                format_vnd(row[3])
+            ))
 
     def _safe_get(self, var):
         try:
@@ -340,24 +416,20 @@ class AdvancedPharmacySystem:
             return 0
 
     def _update_sell_total(self):
-        """Cập nhật tổng tiền giỏ hàng"""
         total = sum(item['qty'] * item['price'] for item in self.cart_items)
         self.lbl_sell_total.config(text=f"Tổng giỏ hàng: {format_vnd(total)}")
 
     def _refresh_cart_table(self):
-        """Vẽ lại bảng giỏ hàng"""
         self.cart_table.delete(*self.cart_table.get_children())
         for item in self.cart_items:
             self.cart_table.insert('', tk.END, values=(
-                item['name'],
-                item['qty'],
+                item['name'], item['qty'],
                 format_vnd(item['price']),
                 format_vnd(item['qty'] * item['price'])
             ))
         self._update_sell_total()
 
     def add_to_cart(self):
-        """Thêm thuốc đang chọn vào giỏ hàng"""
         if not self.var_id.get():
             messagebox.showwarning("Chưa chọn thuốc", "Vui lòng click chọn thuốc từ bảng danh sách trước!")
             return
@@ -371,19 +443,16 @@ class AdvancedPharmacySystem:
             messagebox.showerror("Lỗi", "Số lượng phải lớn hơn 0!")
             return
 
-        # Kiểm tra thuốc đã có trong giỏ chưa — nếu có thì cộng thêm
         for item in self.cart_items:
             if item['id'] == product_id:
                 new_qty = item['qty'] + qty
                 if new_qty > stock:
-                    messagebox.showerror("Không đủ hàng",
-                        f"Kho chỉ còn {stock} sản phẩm, giỏ hàng đã có {item['qty']}!")
+                    messagebox.showerror("Không đủ hàng", f"Kho chỉ còn {stock} sản phẩm, giỏ đã có {item['qty']}!")
                     return
                 item['qty'] = new_qty
                 self._refresh_cart_table()
                 return
 
-        # Thuốc chưa có trong giỏ — thêm mới
         if qty > stock:
             messagebox.showerror("Không đủ hàng", f"Kho chỉ còn {stock} sản phẩm!")
             return
@@ -392,7 +461,6 @@ class AdvancedPharmacySystem:
         self._refresh_cart_table()
 
     def remove_cart_item(self):
-        """Xóa dòng đang chọn khỏi giỏ hàng"""
         selected = self.cart_table.focus()
         if not selected:
             messagebox.showwarning("Chưa chọn", "Vui lòng click chọn dòng cần xóa trong giỏ hàng!")
@@ -402,7 +470,6 @@ class AdvancedPharmacySystem:
         self._refresh_cart_table()
 
     def checkout_cart(self):
-        """Thanh toán toàn bộ giỏ hàng — tạo 1 hóa đơn với nhiều BillDetails"""
         if not self.cart_items:
             messagebox.showwarning("Giỏ trống", "Vui lòng thêm ít nhất một loại thuốc vào giỏ hàng!")
             return
@@ -410,40 +477,34 @@ class AdvancedPharmacySystem:
         total_bill = sum(item['qty'] * item['price'] for item in self.cart_items)
 
         try:
-            # Tạo hóa đơn tổng
             self.cursor.execute("INSERT INTO Bills (BillDate, TotalAmount) VALUES (GETDATE(), ?)", (total_bill,))
             self.cursor.execute("SELECT @@IDENTITY")
             bill_id = self.cursor.fetchone()[0]
 
-            # Ghi từng dòng chi tiết & trừ kho
             lines = []
             for item in self.cart_items:
-                self.cursor.execute("INSERT INTO BillDetails VALUES (?, ?, ?, ?)",
+                self.cursor.execute("INSERT INTO BillDetails (BillID, ProductID, Quantity, Price) VALUES (?, ?, ?, ?)",
                                     (bill_id, item['id'], item['qty'], item['price']))
                 self.cursor.execute("SELECT Stock FROM Products WHERE ID=?", (item['id'],))
                 cur_stock = self.cursor.fetchone()[0]
-                new_stock = cur_stock - item['qty']
-                self.cursor.execute("UPDATE Products SET Stock=? WHERE ID=?", (new_stock, item['id']))
-                lines.append(f"  • {item['name']}: {item['qty']} × {format_vnd(item['price'])} = {format_vnd(item['qty']*item['price'])}")
+                self.cursor.execute("UPDATE Products SET Stock=? WHERE ID=?", (cur_stock - item['qty'], item['id']))
+                lines.append(f"  • {item['name']}: {item['qty']} x {format_vnd(item['price'])} = {format_vnd(item['qty']*item['price'])}")
 
             self.conn.commit()
-
-            # Xóa giỏ hàng sau khi thanh toán
             self.cart_items.clear()
             self._refresh_cart_table()
             self.fetch_data()
 
+            sep = "-" * 42
             detail_text = "\n".join(lines)
-            sep = "\u2500" * 38
-            messagebox.showinfo("Thanh toan thanh cong",
-                "Nhan vien: {}\nHoa don #{}\n{}\n{}\n{}\nTONG CONG: {}".format(
+            messagebox.showinfo("Thanh toán thành công",
+                "Nhân viên: {}\nHóa đơn #{}\n{}\n{}\n{}\nTỔNG CỘNG: {}".format(
                     self.current_user, bill_id, sep, detail_text, sep, format_vnd(total_bill)))
         except Exception as e:
             self.conn.rollback()
             messagebox.showerror("Lỗi hệ thống", f"Giao dịch thất bại: {e}")
 
     def apply_permissions(self):
-        """Khóa hoặc vô hiệu hóa các nút chức năng nếu tài khoản không phải Admin"""
         if self.role == "Staff":
             self.btn_add.config(state=tk.DISABLED, bg="#bdc3c7")
             self.btn_update.config(state=tk.DISABLED, bg="#bdc3c7")
@@ -451,26 +512,19 @@ class AdvancedPharmacySystem:
             self.btn_import.config(state=tk.DISABLED, bg="#bdc3c7")
             self.btn_chart1.config(state=tk.DISABLED, bg="#bdc3c7")
             self.btn_chart2.config(state=tk.DISABLED, bg="#bdc3c7")
-
             self.crud_btn_frame.config(text="Thao tác dữ liệu (Bị khóa)")
             self.import_frame.config(text="NHẬP HÀNG THÊM (Bị khóa)")
             self.stat_frame.config(text="BÁO CÁO THỐNG KÊ (Bị khóa)")
 
     def update_total_fund(self):
-        """Quỹ = Tổng thu (Bills) - Tổng chi nhập hàng (ImportHistory)"""
         try:
             self.cursor.execute("SELECT ISNULL(SUM(TotalAmount), 0) FROM Bills")
             total_revenue = self.cursor.fetchone()[0]
-
             self.cursor.execute("SELECT ISNULL(SUM(TotalCost), 0) FROM ImportHistory")
             total_import = self.cursor.fetchone()[0]
-
             fund = total_revenue - total_import
             color = "#27ae60" if fund >= 0 else "#c0392b"
-            self.lbl_total_fund.config(
-                text=f"🏦  TỔNG QUỸ CỬA HÀNG: {format_vnd(fund)}",
-                bg=color
-            )
+            self.lbl_total_fund.config(text=f"🏦  TỔNG QUỸ CỬA HÀNG: {format_vnd(fund)}", bg=color)
         except Exception:
             self.lbl_total_fund.config(text="🏦  TỔNG QUỸ CỬA HÀNG: 0 ₫", bg="#e67e22")
 
@@ -491,16 +545,13 @@ class AdvancedPharmacySystem:
             if exp_date:
                 if isinstance(exp_date, str):
                     exp_date = datetime.strptime(exp_date, "%Y-%m-%d").date()
-
                 if exp_date <= now or stock <= 0:
                     tag = "CRITICAL"
                 elif exp_date <= three_months_later or stock <= 10:
                     tag = "WARNING"
 
-            # Hiện giá bán dạng VNĐ; ẩn giá nhập với Staff
             display_price = format_vnd(row[4])
             display_import_price = "******" if self.role == "Staff" else format_vnd(row[5])
-
             self.table.insert('', tk.END, values=(row[0], row[1], row[2], row[3], display_price,
                                                   display_import_price, row[6], str(row[7])), tags=(tag,))
 
@@ -513,13 +564,11 @@ class AdvancedPharmacySystem:
             self.var_name.set(row[1])
             self.var_cat.set(row[2])
             self.var_uses.set(row[3])
-            # Lấy giá trị số thô từ DB để đưa vào form (không dùng chuỗi đã format)
             self._load_raw_price(row[0])
             self.var_stock.set(row[6])
             self.var_expiry.set(row[7])
 
     def _load_raw_price(self, product_id):
-        """Truy vấn lại DB để lấy giá số thô, không bị ảnh hưởng bởi định dạng hiển thị"""
         self.cursor.execute("SELECT Price, ImportPrice FROM Products WHERE ID=?", (product_id,))
         price_row = self.cursor.fetchone()
         if price_row:
@@ -538,7 +587,7 @@ class AdvancedPharmacySystem:
         self.var_expiry.set("")
         self.lbl_price_display.config(text="")
         self.lbl_import_display.config(text="")
-        self.lbl_sell_total.config(text="Tổng tiền: 0 ₫")
+        self.lbl_sell_total.config(text="Tổng giỏ hàng: 0 ₫")
 
     def add_item(self):
         if self.role != "Admin": return
@@ -587,43 +636,6 @@ class AdvancedPharmacySystem:
             self.table.insert('', tk.END, values=(row[0], row[1], row[2], row[3], display_price,
                                                   display_import_price, row[6], str(row[7])), tags=("NORMAL",))
 
-    def sell_drug(self):
-        if not self.var_id.get():
-            messagebox.showwarning("Lỗi", "Vui lòng chọn thuốc cần bán trên bảng danh sách trước!")
-            return
-
-        product_id = int(self.var_id.get())
-        current_stock = int(self.var_stock.get())
-        qty_to_sell = self.var_sell_qty.get()
-        price = self.var_price.get()
-
-        if qty_to_sell <= 0:
-            messagebox.showerror("Lỗi", "Số lượng bán ra phải lớn hơn 0!")
-            return
-        if current_stock < qty_to_sell:
-            messagebox.showerror("Thất bại", f"Kho không đủ hàng! Hiện tại chỉ còn {current_stock} sản phẩm.")
-            return
-
-        total_cost = price * qty_to_sell
-
-        try:
-            self.cursor.execute("INSERT INTO Bills (BillDate, TotalAmount) VALUES (GETDATE(), ?)", (total_cost,))
-            self.cursor.execute("SELECT @@IDENTITY")
-            bill_id = self.cursor.fetchone()[0]
-
-            self.cursor.execute("INSERT INTO BillDetails VALUES (?, ?, ?, ?)",
-                                (bill_id, product_id, qty_to_sell, price))
-
-            new_stock = current_stock - qty_to_sell
-            self.cursor.execute("UPDATE Products SET Stock = ? WHERE ID = ?", (new_stock, product_id))
-
-            self.conn.commit()
-            self.fetch_data()
-            messagebox.showinfo("Hóa đơn đã xuất",
-                                f"Nhân viên [{self.current_user}] bán hàng thành công!\nTổng hóa đơn: {format_vnd(total_cost)}")
-        except Exception as e:
-            messagebox.showerror("Lỗi hệ thống", f"Giao dịch thất bại: {e}")
-
     def import_stock(self):
         if self.role != "Admin": return
         if not self.var_id.get(): return
@@ -635,41 +647,29 @@ class AdvancedPharmacySystem:
         if qty_to_import <= 0: return
 
         total_cost = import_price * qty_to_import
-
         self.cursor.execute("UPDATE Products SET Stock = ? WHERE ID = ?", (new_stock, product_id))
-        # Ghi chi phí nhập vào ImportHistory để trừ vào quỹ
         self.cursor.execute(
             "INSERT INTO ImportHistory (ProductID, Quantity, ImportPrice, TotalCost) VALUES (?, ?, ?, ?)",
-            (product_id, qty_to_import, import_price, total_cost)
-        )
+            (product_id, qty_to_import, import_price, total_cost))
         self.conn.commit()
         self.fetch_data()
-        messagebox.showinfo("Thành công",
-                            f"Đã nạp thêm {qty_to_import} đơn vị vào kho.\nChi phí nhập: {format_vnd(total_cost)}")
+        messagebox.showinfo("Thành công", f"Đã nạp thêm {qty_to_import} đơn vị vào kho.\nChi phí nhập: {format_vnd(total_cost)}")
 
     def report_revenue(self):
         if self.role != "Admin": return
-        self.cursor.execute(
-            "SELECT ISNULL(SUM(TotalAmount), 0) FROM Bills WHERE BillDate >= DATEADD(day, -7, GETDATE())")
+        self.cursor.execute("SELECT ISNULL(SUM(TotalAmount), 0) FROM Bills WHERE BillDate >= DATEADD(day, -7, GETDATE())")
         weekly_rev = self.cursor.fetchone()[0]
-
-        self.cursor.execute(
-            "SELECT ISNULL(SUM(TotalAmount), 0) FROM Bills WHERE BillDate >= DATEADD(day, -30, GETDATE())")
+        self.cursor.execute("SELECT ISNULL(SUM(TotalAmount), 0) FROM Bills WHERE BillDate >= DATEADD(day, -30, GETDATE())")
         monthly_rev = self.cursor.fetchone()[0]
 
-        categories = ['Doanh thu 7 ngày qua', 'Doanh thu 30 ngày qua']
-        revenues = [weekly_rev, monthly_rev]
-
         plt.figure(figsize=(7, 5))
-        bars = plt.bar(categories, revenues, color=['#3498db', '#2ecc71'], width=0.4)
+        bars = plt.bar(['Doanh thu 7 ngày qua', 'Doanh thu 30 ngày qua'], [weekly_rev, monthly_rev],
+                       color=['#3498db', '#2ecc71'], width=0.4)
         plt.title("BÁO CÁO DOANH THU HỆ THỐNG", fontsize=14, fontweight='bold')
         plt.ylabel("Số tiền (VNĐ)")
-
         for bar in bars:
             yval = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width() / 2.0, yval, f"{yval:,.0f} ₫", va='bottom', ha='center',
-                     fontweight='bold')
-
+            plt.text(bar.get_x() + bar.get_width() / 2.0, yval, f"{yval:,.0f} ₫", va='bottom', ha='center', fontweight='bold')
         plt.tight_layout()
         plt.show()
 
@@ -682,10 +682,8 @@ class AdvancedPharmacySystem:
         """)
         data = self.cursor.fetchall()
         if not data: return
-
         names = [row[0] for row in data]
         sold_qty = [row[1] for row in data]
-
         plt.figure(figsize=(10, 5))
         plt.barh(names[::-1], sold_qty[::-1], color='#e67e22')
         plt.title("DANH SÁCH THUỐC TIÊU THỤ MẠNH", fontsize=13, fontweight='bold')
